@@ -1,6 +1,8 @@
 import xml.etree.ElementTree as ET
+import os
+from xml.etree.ElementTree import ParseError
 
-class tmxHandler():
+class TmxHandler():
 
     def __init__(self):
         self.tag=None
@@ -52,6 +54,7 @@ class tmxHandler():
         if tag == 'tu':
             self.tag=None
             self.lang=None
+            self.corpus=None
             self.corpus={}
         elif tag == 'tuv':
             self.tag='tu'
@@ -59,17 +62,37 @@ class tmxHandler():
         elif tag == 'seg':
             self.tag='tuv'
         # else:
-            # pass
-            
+            # pass            
 
-    def parse(self, filename):
-        for event, elem in ET.iterparse(filename, events=('start','end')):
-            if event == 'start':
-                self.startElement(elem.tag, elem.attrib, elem)
-            elif event == 'end':
-                if elem.tag=='tu':
-                    yield self.corpus
-                self.endElem(elem.tag)
+    def parse(self, path):
+        
+        if not os.path.isdir(path):
+            files=[path]
+        else:
+            files = []
+            for fn in os.listdir(path):
+                files.append(path + "/" + fn)
+
+        for f in files: 
+                            
+            if os.path.isdir(f):
+                continue
+
+            iter = ET.iterparse(f, events=('start','end'))
+            while True:
+                try:
+                    event, elem = next(iter)
+                    if event == 'start':
+                        self.startElement(elem.tag, elem.attrib, elem)
+                    elif event == 'end':
+                        if elem.tag=='tu':
+                            elem.clear()
+                            yield self.corpus
+                        self.endElem(elem.tag)
+                # except ParseError as e:
+                #     print(e, self.corpus, self.tag, self.lang)
+                except StopIteration:
+                    break
 
 
 

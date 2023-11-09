@@ -7,6 +7,9 @@ import time
 import numpy as np
 import torch
 import torch.nn
+import time
+
+from torchinfo import summary
 
 
 class Translator():
@@ -16,15 +19,16 @@ class Translator():
         # self.reader = corpus_reader.tmxHandler()
         self.embeddings = embeddings
         if model is None:
-            self.s2s = seq2seq.Seq2Seq(dev, embeddings, hiddens, n_layers)
+            self.s2s = seq2seq.Seq2Seq(dev, embeddings, hiddens, n_layers).to(dev)
         else:
             self.s2s = model
         
         if embedding_model_loader is None:
             self.embedding_loader = word2vec.WordEmbeddingLoader()
+            self.embedding_loaded = False
         else:
             self.embedding_loader = embedding_model_loader
-        self.embedding_loaded = False
+            self.embedding_loaded = True
 
     def load_embeddings(self, embedding_fname):
         self.embedding_loader.loadFromFile(embedding_fname)
@@ -45,49 +49,4 @@ class Translator():
             output.append(w_y)
 
         return output
-
-    def do_train(self, corpus_fname, batch_size:int, batches: int):
-        reader = corpus_reader.tmxHandler()
-        loss = torch.nn.MSELoss()
-        model = self.s2s.to(self.device)
-        print(model)
-
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        generator = reader.parse(corpus_fname)
-        for _b in range(batches):
-            batch = []
-            try:
-                for _c in range(batch_size):
-                    try:
-                        corpus = next(generator)
-                        if 'en' in corpus and 'zh' in corpus:
-                            en = self.embedding_loader.getEmbeddingsForScentence(corpus['en'],'en')
-                            zh = self.embedding_loader.getEmbeddingsForScentence(corpus['zh'], 'zh')
-                            batch.append((en,zh))
-                    except (StopIteration):
-                        break
-            finally:
-                print(time.localtime())
-                print("batch: " + str(_b))
-                model.do_train(batch, optimizer, loss)
-
-if __name__=="__main__":
-    device = torch.device('cuda')
-    embeddings = 300
-    hiddens = 600
-    n_layers = 4
-    # model_fname = "./models/model_latest"
-    model_fname = None
-
-    model = None
-    if not model_fname is None:
-        print('loading model from ' + model_fname)
-        model = torch.load(model_fname, map_location=device)
-        print('model loaded')
-
-    translator = Translator(device, embeddings, hiddens, n_layers, model)
-    print('loading embeddings')
-    translator.load_embeddings("../sgns.merge.word")
-    print('training')
-    translator.do_train("../News-Commentary_v16.tmx", 1000, 100)
-
+    
