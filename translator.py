@@ -33,22 +33,23 @@ class Translator():
     
     def predict(self, sequence, length):
         x = self.embedding_loader.get_scentence_embeddings(sequence, 'en')
-
         y = torch.zeros(length, self.embeddings)
-        # for i in range(length):
-        #     x_input = x.unsqueeze(0).to(self.device)
-        #     y_input = y.unsqueeze(0).to(self.device)
-        #     _y = self.s2s(x_input,y_input)
-            # torch.cat(y, _y[0,i].unsqueeze())
-        x_input = x.unsqueeze(0).to(self.device)
-        y_input = y.unsqueeze(0).to(self.device)
-        _y = self.s2s(x_input,y_input)
+        y_input = torch.zeros(1, length, self.s2s.embeddings)
         
+        x_input = torch.zeros(1, length, self.s2s.embeddings)
+        x_input[0, :x.shape[0]] = x
+        
+        for i in range(length):
+            _y = self.s2s(x_input.to(self.device), y_input.to(self.device))
+            y_input[0, i] = _y[0, i]
+            print(self.embedding_loader.vector_2_scentence(y_input[0]))
+            print(self.embedding_loader.vector_2_scentence(_y[0]))
+
         # output = []
         # for v_y in _y[0]:
         #     w_y = self.embedding_loader.vector_2_scentence(v_y)
         #     output.append(w_y)
-        output = self.embedding_loader.vector_2_scentence(_y[0])
+        output = self.embedding_loader.vector_2_scentence(y_input[0])
         return output
 
 

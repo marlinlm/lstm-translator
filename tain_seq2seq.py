@@ -7,8 +7,8 @@ import tokenizer
 from seq2seq import Seq2Seq
 import sys
 
-max_x_len = 200
-max_y_len = 200
+max_x_len = 50
+max_y_len = 50
 
 def do_train(device, model:Seq2Seq, train_set, optimizer, loss_function, batch_idx, loss_out_file):
 
@@ -21,20 +21,33 @@ def do_train(device, model:Seq2Seq, train_set, optimizer, loss_function, batch_i
     with open(loss_out_file, 'a', encoding='utf-8') as ff:
         losses = []
         for seq, labels in train_set:
+            
+            if seq.shape[0] > max_x_len or labels.shape[0] > max_y_len:
+                # print('Scentence is too long. Ignored.' + str(seq.shape[0]) + " : " + str(labels.shape[0]))
+                continue
+            
             step = step + 1
+            
+            len = labels.shape[0]
+            embeddings = labels.shape[1]
 
             # ignore the last word of the label scentence
             # because it is to be predicted
-            label_input = labels[:-1].unsqueeze(0)
-
-            # seq_input: [1, seq length, embeddings]
-            seq_input = seq.unsqueeze(0)
+            label_input = torch.zeros(len, len, embeddings)
+            for i in range(1, len):
+                label_input[i,1:i+1] = labels[:i]
+            
+            # seq_input: [len, seq length, embeddings]
+            seq_input = seq.repeat(len, 1, 1)
 
             # y_pred: [1, seq length + 1, embeddings]
-            y_pred = model(seq_input, label_input)
+            y_pred = model(seq_input.to(device), label_input.to(device))
+            output = torch.zeros(len, embeddings)
+            for i in range(len):
+                output[i] = y_pred[i, i]
 
             # single_loss = loss_function(y_pred.squeeze(0), labels.to(self.device))
-            single_loss = loss_function(y_pred.squeeze(0), labels.to(device))
+            single_loss = loss_function(output.to(device), labels.to(device))
             
             optimizer.zero_grad()
             single_loss.backward()
@@ -69,6 +82,7 @@ def do_batched_train(device, model:Seq2Seq, train_set, optimizer, loss_function,
 
             label_input = torch.zeros(1, max_y_len - 1, model.embeddings)
             gold_input = torch.zeros(1, max_y_len, model.embeddings)
+            
             # ignore the last word of the label scentence
             # because it is to be predicted
             label_input[0,:labels.shape[0] - 1] = labels[:-1]
@@ -137,23 +151,23 @@ def train(device, model, embedding_loader, corpus_fname, batch_size:int, batches
                     if 'en' in corpus and 'zh' in corpus:
                         # en = embedding_loader.get_scentence_embeddings(corpus['en'] + eos_en, 'en').to(device)
                         # zh = embedding_loader.get_scentence_embeddings(corpus['zh'] + eos_zh, 'zh').to(device)
-                        en = embedding_loader.get_scentence_embeddings(corpus['en'], 'en').to(device)
-                        zh = embedding_loader.get_scentence_embeddings(corpus['zh'], 'zh').to(device)
+                        en = embedding_loader.get_scentence_embeddings(corpus['en'], 'en')
+                        zh = embedding_loader.get_scentence_embeddings(corpus['zh'], 'zh')
                         batch.append((en,zh))
                 except (StopIteration):
                     break
         finally:
             print("batch: " + str(_b))
-            do_batched_train(device, model, batch, optimizer, loss, 2, 50, _b, "../loss.log")
-            # do_train(device, model, batch, optimizer, loss, _b, "../loss.log")
-            model_out_name = "./models/seq2seq_" + str(time.time())
+            # do_batched_train(device, model, batch, optimizer, loss, 2, 50, _b, "../loss.log")
+            do_train(device, model, batch, optimizer, loss, _b, "../loss.log")
+            model_out_name = "./models/seq2seq_" + str(time.time()) + "_" + str(_b)
             print(f'[{time.asctime(time.localtime(time.time()))}] - saving model:{model_out_name}')
             torch.save(model, model_out_name)
         
 if __name__=="__main__":
     device = torch.device('cuda')
     embeddings = 300
-    hiddens = 1200
+    hiddens = 600
     n_layers = 4
 
     print("loading embedding")
