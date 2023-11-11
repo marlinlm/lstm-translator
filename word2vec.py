@@ -38,7 +38,7 @@ class WordEmbeddingLoader():
     def vector_2_word(self, vector:torch.Tensor):
         if not self.model:
             return None
-        return self.model.wv.similar_by_vector(vector.numpy())[0][0]
+        return self.model.similar_by_vector(vector.cpu().detach().numpy())[0][0]
     
     def vector_2_scentence(self, vectors:torch.Tensor):
         if not self.model:

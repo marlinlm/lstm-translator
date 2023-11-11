@@ -10,7 +10,7 @@ class Encoder(nn.Module):
         self.embedding_size = embeddings
         self.lstm = nn.LSTM(embeddings, hidden_size, num_layers, batch_first=True, dropout=drop_out)
         self.linear = nn.Linear(hidden_size, embeddings)
-        # self.encoder = nn.Linear(hidden_size * 2, hidden_size * 8)
+        self.encoder = nn.Linear(hidden_size * 2, hidden_size * 2)
         # self.c_linear = nn.Linear(hidden_size * 2, hidden_size * 2)
         self.relu = nn.Tanh()
 
@@ -20,7 +20,7 @@ class Encoder(nn.Module):
             elif 'weight' in name:
                 nn.init.xavier_uniform_(param,gain=0.02)
         nn.init.xavier_uniform_(self.linear.weight.data,gain=0.25)
-        # nn.init.xavier_uniform_(self.encoder.weight.data,gain=0.25)
+        nn.init.xavier_uniform_(self.encoder.weight.data,gain=0.25)
         # nn.init.xavier_uniform_(self.encoder_2.weight.data,gain=0.25)
         # nn.init.xavier_uniform_(self.encoder_2.weight.data,gain=0.25)
 
@@ -32,8 +32,8 @@ class Encoder(nn.Module):
         # x = x.to(self.device)
         lstm_out, (hidden, cell) = self.lstm(x)
 
-        # h = torch.cat((hidden, cell), dim=2)
-        # h_out = self.encoder_2(self.relu(self.encoder(h)))
+        h = torch.cat((hidden, cell), dim=2)
+        h_out = self.encoder(h)
 
         lineared = self.linear(lstm_out)
         out = self.relu(lineared)
@@ -41,10 +41,10 @@ class Encoder(nn.Module):
         # hidden = [n_layer, batch size, hidden size]
         # cell = [n_layer, batch size, hidden size]
         # return out, lineared[:self.n_layers], lineared[self.n_layers:]
-        # h_out_cont = h_out[:,:,:self.hidden_layer_size].clone().detach().to(self.device)
-        # cell_out_cont = h_out[:,:,self.hidden_layer_size:].clone().detach().to(self.device)
-        # return out, h_out_cont, cell_out_cont
-        return out, hidden, cell
+        h_out_cont = h_out[:,:,:self.hidden_layer_size].clone().detach().to(self.device)
+        cell_out_cont = h_out[:,:,self.hidden_layer_size:].clone().detach().to(self.device)
+        return out, h_out_cont, cell_out_cont
+        # return out, hidden, cell
     
 
 

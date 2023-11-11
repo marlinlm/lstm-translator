@@ -157,7 +157,7 @@ if __name__=="__main__":
     n_layers = 4
 
     print("loading embedding")
-    embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/sgns.merge/sgns.merge.word")
+    embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/sgns.merge/sgns.merge.word.toy")
     # embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/parellel_01.v2c")
     print("load embedding finished")
 

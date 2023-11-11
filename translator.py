@@ -23,30 +23,43 @@ class Translator():
         else:
             self.s2s = model
         
-        if embedding_model_loader is None:
-            self.embedding_loader = word2vec.WordEmbeddingLoader()
-            self.embedding_loaded = False
-        else:
-            self.embedding_loader = embedding_model_loader
-            self.embedding_loaded = True
-
-    def load_embeddings(self, embedding_fname):
-        self.embedding_loader.loadFromFile(embedding_fname)
+        # if embedding_model_loader is None:
+        #     self.embedding_loader = word2vec.WordEmbeddingLoader()
+        #     self.embedding_loaded = False
+        # else:
+        self.embedding_loader = embedding_model_loader
         self.embedding_loaded = True
+
     
     def predict(self, sequence, length):
-        x = self.embedding_loader.getEmbeddingsForScentence(sequence, 'en')
+        x = self.embedding_loader.get_scentence_embeddings(sequence, 'en')
 
-        y = torch.zeros(0, self.embeddings)
-        for i in range(length):
-            y_input = y.unsqueeze(0).to(self.device)
-            _y = self.s2s(x,y_input)
-            torch.cat(y, _y[0,i].unsqueeze())
+        y = torch.zeros(length, self.embeddings)
+        # for i in range(length):
+        #     x_input = x.unsqueeze(0).to(self.device)
+        #     y_input = y.unsqueeze(0).to(self.device)
+        #     _y = self.s2s(x_input,y_input)
+            # torch.cat(y, _y[0,i].unsqueeze())
+        x_input = x.unsqueeze(0).to(self.device)
+        y_input = y.unsqueeze(0).to(self.device)
+        _y = self.s2s(x_input,y_input)
         
-        output = []
-        for v_y in y:
-            w_y = self.embedding_loader.search(v_y)
-            output.append(w_y)
-
+        # output = []
+        # for v_y in _y[0]:
+        #     w_y = self.embedding_loader.vector_2_scentence(v_y)
+        #     output.append(w_y)
+        output = self.embedding_loader.vector_2_scentence(_y[0])
         return output
-    
+
+
+
+if __name__=='__main__':
+    embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/sgns.merge/sgns.merge.word")
+    dev = torch.device('cuda')
+    embeddings = 300
+    hiddens = 1200
+    n_layers = 4
+    model_fname = "../models/_seq2seq_1699630089.3966775"
+    model = torch.load(model_fname)
+    trn = Translator(dev, embeddings, hiddens, n_layers, model, embedding_loader)
+    print(trn.predict("i love China.",10))
