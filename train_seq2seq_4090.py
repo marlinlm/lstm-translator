@@ -7,8 +7,8 @@ import tokenizer
 from seq2seq import Seq2Seq
 import sys
 
-max_x_len = 20
-max_y_len = 20
+max_x_len = 50
+max_y_len = 50
 
 def do_train(device, model:Seq2Seq, train_set, optimizer, loss_function, batch_idx, loss_out_file):
 
@@ -82,7 +82,6 @@ def do_batched_train(device, model:Seq2Seq, train_set, optimizer, loss_function,
 
             label_input = torch.zeros(1, max_y_len - 1, model.embeddings)
             gold_input = torch.zeros(1, max_y_len, model.embeddings)
-            
             # ignore the last word of the label scentence
             # because it is to be predicted
             label_input[0,:labels.shape[0] - 1] = labels[:-1]
@@ -130,7 +129,7 @@ def get_loss(predicted, gold, model, optimizer, loss_function):
     return loss
 
 
-def train(device, model, embedding_loader, corpus_fname, batch_size:int, batches: int, last_batch=-1):
+def train(device, model, embedding_loader, corpus_fname, batch_size:int, batches: int, last_batch = -1):
     eos_en = tokenizer.EOS_EN
     eos_zh = tokenizer.EOS_ZH
 
@@ -142,6 +141,7 @@ def train(device, model, embedding_loader, corpus_fname, batch_size:int, batches
     optimizer = torch.optim.Adam(model.parameters())
     
     generator = reader.parse(corpus_fname)
+    batch_idx = 0
     for _b in range(batches):
         batch = []
         try:
@@ -159,10 +159,11 @@ def train(device, model, embedding_loader, corpus_fname, batch_size:int, batches
         finally:
             print("batch: " + str(_b))
             if _b <= last_batch:
-                print("skepped.")
+                print("skipped")
                 continue
-            # do_batched_train(device, model, batch, optimizer, loss, 2, 50, _b, "../loss.log")
+            # do_batched_train(device, model, batch, optimizer, loss, 200, 1, _b, "../loss.log")
             do_train(device, model, batch, optimizer, loss, _b, "../loss.log")
+    
             model_out_name = "./models/seq2seq_" + str(time.time()) + "_" + str(_b)
             print(f'[{time.asctime(time.localtime(time.time()))}] - saving model:{model_out_name}')
             torch.save(model, model_out_name)
@@ -174,7 +175,7 @@ if __name__=="__main__":
     n_layers = 4
 
     print("loading embedding")
-    embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/sgns.merge/sgns.merge.word")
+    embedding_loader = word2vec.WordEmbeddingLoader("../sgns.merge.word")
     # embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/parellel_01.v2c")
     print("load embedding finished")
 
@@ -188,4 +189,4 @@ if __name__=="__main__":
     else:
         model = Seq2Seq(device, embeddings, hiddens, n_layers, 0.5, 0.5).to(device)
     
-    train(device, model, embedding_loader, "../corpus/train", 5000, 4000)
+    train(device, model, embedding_loader, "/root/autodl-fs/corpus/train", 100000, 4000)
