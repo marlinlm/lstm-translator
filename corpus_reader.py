@@ -2,6 +2,21 @@ import xml.etree.ElementTree as ET
 import os
 from xml.etree.ElementTree import ParseError
 
+class CorpusReader():
+    def parse(self, zh_fname, en_fname):
+        with open(zh_fname, mode = "r", encoding='utf-8') as zhf:
+            with open(en_fname, mode = "r", encoding="utf-8") as enf:
+                while True:
+                    try:
+                        zh_line = zhf.readline()
+                        en_line = enf.readline()
+                        zh = str.split(zh_line)
+                        en = str.split(en_line)
+                        yield (zh, en)
+                    except Exception as e:
+                        print(e)
+                        raise StopIteration
+
 class TmxHandler():
 
     def __init__(self):
@@ -94,7 +109,13 @@ class TmxHandler():
                 except StopIteration:
                     break
 
-
+if __name__ == "__main__":
+    reader = CorpusReader()
+    r = reader.parse("../corpus/zh.txt", "../corpus/en.txt")
+    for _ in range(100):
+        zh, en = next(r)
+        print(zh)
+        print(en)
 
 
 

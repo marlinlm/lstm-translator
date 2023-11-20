@@ -178,8 +178,8 @@ if __name__=="__main__":
     # embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/parellel_01.v2c")
     print("load embedding finished")
 
-    # model_fname = "./models/_seq2seq_1698000846.3281412"
-    model_fname = None
+    model_fname = "./models/_seq2seq_1699753627.1307073_162"
+    # model_fname = None
     model = None
     if not model_fname is None:
         print('loading model from ' + model_fname)
@@ -188,4 +188,4 @@ if __name__=="__main__":
     else:
         model = Seq2Seq(device, embeddings, hiddens, n_layers, 0.5, 0.5).to(device)
     
-    train(device, model, embedding_loader, "../corpus/train", 5000, 4000)
+    train(device, model, embedding_loader, "../corpus/train", 5000, 4000,162)
