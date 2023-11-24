@@ -1,25 +1,23 @@
-import jieba
-from nltk import word_tokenize as wt
-from nltk import MWETokenizer
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
-# jieba.load_userdict(['停动烫次烫打烫次停'])
-# tokens = jieba.lcut("我要去北京旅游。停动烫次烫打烫次停", cut_all=False)
-# print (len(tokens))
-# print(tokens)
+linear = nn.Linear(3,1)
+opt = optim.SGD(linear.parameters(), lr=0.1)
+x = torch.Tensor([[1,1,1],[2,2,2]])
+y = torch.Tensor([[1.5],[1.5]])
+loss_fun = nn.MSELoss()
 
-# sen = 'i love football players.<eos>/r/n'
-# user_tokenizer = MWETokenizer([('<','eos','>')])
-# w = user_tokenizer.tokenize((wt(sen)))
-# print(w)
-
-import word2vec
-from gensim.models import Word2Vec
-
-model = Word2Vec.load("../parellel_01.model")
-print(model['<eos>'])
-
-# w2v_eos = word2vec.WordEmbeddingLoader("../sgns.merge.word.eos")
-# print(w2v_eos.get_embeddings('是'))
-
-# w2v = word2vec.WordEmbeddingLoader("../baike_26g_news_13g_novel_229g.model")
-# w2v.get_embeddings('是')
+while True:
+    print("weight(before)    ",linear.weight)
+    print("grad(before)      ",linear.weight.grad)
+    out = linear(x)
+    print("out:              ", out)
+    loss = loss_fun(out, y)
+    print("loss:             ", loss)
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+    print("grad(after)       ",linear.weight.grad)
+    print("weight(after)     ",linear.weight)
+    print("++++++++++++++++++++++++++")

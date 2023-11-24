@@ -7,14 +7,15 @@ class Creterion(nn.Module):
         super().__init__()
         self.device = dev
     
-    def forward(self, predicted, target, target_len):
+    def forward(self, predicted, target, target_len, batches):
         # pred_flat = predicted.view(-1, predicted.shape[2])
         # target_flat = target.view(-1, 1).long()
         
         mask = (torch.arange(target_len.max().item(), device=self.device)[None, :] < target_len[:, None]).float()
         loss = predicted.gather(2, target.long().view(target.shape[0], -1, 1))
-        loss = loss.view(-1, 1) * mask.view(-1, 1)
-        loss = - torch.log(torch.sum(loss) / torch.sum(mask))
+        loss = torch.log(loss.view(-1, 1)) * mask.view(-1, 1)
+        # loss = loss.view(-1, 1) * mask.view(-1, 1)
+        loss = - torch.sum(loss) * batches / torch.sum(mask)
         return loss
         
 if __name__=="__main__":

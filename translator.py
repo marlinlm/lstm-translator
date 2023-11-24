@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn
 import time
+from seq2seq import Seq2Seq
 
 from torchinfo import summary
 
@@ -55,12 +56,49 @@ class Translator():
 
 
 if __name__=='__main__':
-    embedding_loader = word2vec.WordEmbeddingLoader("../embeddings/sgns.merge/sgns.merge.word")
-    dev = torch.device('cuda')
+    out_vac_size = 20000
+    device = torch.device('cuda')
+    print("loading embedding")
+    embedding_loader = word2vec.WordEmbeddingLoader(device, "../embeddings/sgns.merge/sgns.merge.word", out_vocab_size=out_vac_size)
+    print("loaded embedding")
+    
     embeddings = 300
-    hiddens = 1200
+    hiddens = 600
     n_layers = 4
-    model_fname = "../models/_seq2seq_1699630089.3966775"
-    model = torch.load(model_fname)
-    trn = Translator(dev, embeddings, hiddens, n_layers, model, embedding_loader)
-    print(trn.predict("i love China.",10))
+
+    model_fname = "../models/_seq2seq_1700566502.6062691_120"
+    # model_fname = None
+    model = None
+    if not model_fname is None:
+        print('loading model from ' + model_fname)
+        model = torch.load(model_fname, map_location=device)
+        print('model loaded')
+    else:
+        model = Seq2Seq(device, embedding_loader, embeddings, hiddens, out_vac_size, n_layers, 0.5, 0.5).to(device)
+    
+    model.eval()
+
+    import tokenizer as tknzr
+    tokenizer = tknzr.Tokenizer()
+
+    x = []
+    # x.append(tokenizer.tokenize("public opinion will always focus on our failures.", lang= 'en'))
+    # x.append(tokenizer.tokenize("she would like the wording of the resolutions to be checked.", lang= 'en'))
+    # x.append(tokenizer.tokenize("information technology strategy costs.", lang= 'en'))
+    # x.append(tokenizer.tokenize("these principles were not fully implemented.", lang= 'en'))
+    # x.append(tokenizer.tokenize("a number of payment transactions were made without prior approval.", lang='en'))
+    x.append(tokenizer.tokenize("number", lang='en'))
+
+    # x.append(tokenizer.tokenize("medical", lang= 'en'))
+    print(x)
+    x_idx, x_len, _ = embedding_loader.scentences_to_indexes(x, lang="en")
+    print("x_idx:", x_idx)
+    print("x_len:", x_len)
+    x_emb = embedding_loader.get_embeddings(x_idx, lang="en")
+    # print("x_emb:", x_emb)
+    while True:
+        y_softmax = model.translate(x_emb, x_len, 20)
+        print("y_softmax:", y_softmax)
+        y_idx = embedding_loader.softmax_to_indexes(y_softmax, lang="zh")
+        translated = embedding_loader.index_to_scentence(y_idx, lang="zh")
+        print(translated)

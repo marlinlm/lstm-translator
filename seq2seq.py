@@ -2,16 +2,21 @@ import torch
 import encoder as enc
 import decoder as dec
 import torch.nn as nn
-import word2vec
+# import word2vec
+import dict
 
 class Seq2Seq(nn.Module):
-    def __init__(self, device, embedding_loader:word2vec.WordEmbeddingLoader, embeddings, hiddens, out_vocab_size, n_layers, encoder_dropout, decoder_dropout):
+    def __init__(self, device, en_word_2_idx, zh_word_2_idx, embeddings, hiddens, n_layers, encoder_dropout, decoder_dropout):
         super().__init__()
         self.device = device
-        self.w2v = embedding_loader
-        self.encoder = enc.Encoder(device, embeddings, hiddens, encoder_dropout, n_layers)
-        self.decoder= dec.Decoder(device, embeddings, hiddens, decoder_dropout, n_layers)
-        self.linear = nn.Linear(hiddens, out_vocab_size)
+        # self.w2v = embedding_loader
+        self.src_idx = en_word_2_idx
+        self.tar_idx = zh_word_2_idx
+        src_vocab_size = len(self.src_idx)
+        tar_vocab_size = len(self.tar_idx)
+        self.encoder = enc.Encoder(device, src_vocab_size, embeddings, hiddens, encoder_dropout, n_layers)
+        self.decoder= dec.Decoder(device, tar_vocab_size, embeddings, hiddens, decoder_dropout, n_layers)
+        self.linear = nn.Linear(hiddens, tar_vocab_size)
         self.softmax = nn.Softmax(dim=-1)
         nn.init.xavier_uniform_(self.linear.weight.data,gain=0.25)
         for name, param in self.linear.named_parameters():
@@ -23,8 +28,8 @@ class Seq2Seq(nn.Module):
         assert self.encoder.n_layers == self.decoder.n_layers, "Number of layers of encoder and decoder must be equal!"
         assert self.decoder.hidden_layer_size==self.decoder.hidden_layer_size, "Hidden layer size of encoder and decoder must be equal!"
 
-    # x: [batches, x length, embeddings]
-    # y: [batches, y length, embeddings]
+    # x: [batches, x length, 1]
+    # y: [batches, y length, 1]
     def forward(self, x, x_length, y, y_length):
         
         assert x.shape[0] == y.shape[0], "dim 0 of x and y should be the same."
@@ -36,10 +41,9 @@ class Seq2Seq(nn.Module):
         
         encoder_lineared = self.linear(encoder_out)
         encoder_softmax = self.softmax(encoder_lineared)
-        encoder_idx = self.w2v.softmax_to_indexes(encoder_softmax)
-        encoder_emb = self.w2v.get_embeddings(encoder_idx, lang='zh')
+        encoder_idx = dict.softmax_to_indexes(self.device, encoder_softmax, self.tar_idx)
         
-        decoder_input = torch.cat((encoder_emb, y[:,:-1]), dim=1)
+        decoder_input = torch.cat((encoder_idx, y[:,:-1]), dim=1)
         decoder_out, _, _ = self.decoder(decoder_input, y_length, hidden, cell)
         
         softmax_out = self.linear(decoder_out)
@@ -55,11 +59,10 @@ class Seq2Seq(nn.Module):
         
         encoder_lineared = self.linear(encoder_out)
         encoder_softmax = self.softmax(encoder_lineared)
-        encoder_idx = self.w2v.softmax_to_indexes(encoder_softmax)
-        encoder_emb = self.w2v.get_embeddings(encoder_idx, lang='zh')
+        encoder_idx = dict.softmax_to_indexes(self.device, encoder_softmax, self.tar_idx)
         
         y_length = torch.ones((x.shape[0])).to(self.device)
-        decoder_input = encoder_emb
+        decoder_input = encoder_idx
         output = []
         
         for _ in range(max_y_length):
@@ -70,21 +73,27 @@ class Seq2Seq(nn.Module):
             softmax_out = self.softmax(softmax_out)
             output.append(softmax_out)
             
-            s2s_out_idx = self.w2v.softmax_to_indexes(softmax_out)
-            decoder_input = self.w2v.get_embeddings(s2s_out_idx, lang='zh')
+            s2s_out_idx = dict.softmax_to_indexes(self.device, softmax_out, self.tar_idx)
+            decoder_input = s2s_out_idx
         
         return torch.cat(output, dim=1)
         
 
 if __name__=="__main__":
+    src_vocab_fname = "../corpus/en_dict.txt"
+    tar_vocab_fname = "../corpus/zh_dict.txt"
     dev = torch.device("cpu")
-    embedding_loader = word2vec.WordEmbeddingLoader(dev, "../embeddings/sgns.merge/sgns.merge.word.toy", embeddings = 3)
-    # embedding_loader = word2vec.DummyWordEmbeddingLoader(dev, 3, 0, 20)
-    s2s = Seq2Seq(dev, embedding_loader, 3, 6, 20, 4, 0.5, 0.5).to(dev)
     
-    x = torch.Tensor([[[1,2,3],[4,5,6]],[[21,22,23],[0,0,0]]]).to(dev)
+    src_idx, src_keys = dict.load_dict(src_vocab_fname)
+    tar_idx, tar_keys = dict.load_dict(tar_vocab_fname)
+    
+    # embedding_loader = word2vec.WordEmbeddingLoader(dev, "../embeddings/sgns.merge/sgns.merge.word.toy", embeddings = 3)
+    # embedding_loader = word2vec.DummyWordEmbeddingLoader(dev, 3, 0, 20)
+    s2s = Seq2Seq(dev, src_idx, tar_idx, 3, 6, 4, 0.5, 0.5).to(dev)
+    
+    x = torch.Tensor([[1,2],[3,0]]).long().to(dev)
     x_len = torch.Tensor([2,1]).long().to(dev)
-    y = torch.Tensor([[[7,8,9],[10,11,12],[14,15,16]],[[27,28,29],[0,0,0],[0,0,0]]]).to(dev)
+    y = torch.Tensor([[12,13,14],[5,0,0]]).long().to(dev)
     y_len = torch.Tensor([3,1]).long().to(dev)
     # decoded = s2s(x, x_len, y, y_len)
     # print(decoded)

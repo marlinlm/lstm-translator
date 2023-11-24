@@ -2,12 +2,13 @@ import torch.nn as nn
 import torch
 
 class Decoder(nn.Module):
-    def __init__(self, device, embedding_size=300, hidden_size=900, drop_out=0.2, num_layers=4):
+    def __init__(self, device, vocab_size, embedding_size=300, hidden_size=900, drop_out=0.2, num_layers=4):
         super().__init__()
         self.device = device
         self.hidden_layer_size = hidden_size
         self.n_layers = num_layers
         self.embedding_size = embedding_size
+        self.embedding = nn.Embedding(vocab_size, embedding_size, max_norm=2)
         self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True, dropout=drop_out)
         self.softmax = nn.Softmax(dim=-1)
 
@@ -16,6 +17,8 @@ class Decoder(nn.Module):
                 nn.init.constant_(param, 0.0)
             elif 'weight' in name:
                 nn.init.xavier_uniform_(param,gain=0.02)
+        
+        nn.init.xavier_normal_(self.embedding.weight.data)
         # nn.init.xavier_uniform_(self.linear.weight.data,gain=0.25)
         # for name, param in self.linear.named_parameters():
         #     if 'bias' in name:
@@ -27,8 +30,8 @@ class Decoder(nn.Module):
         x_sorted = x[sorted_idx]
         hidden_sorted = hidden_in[:,sorted_idx]
         cell_sorted = cell_in[:,sorted_idx]
-
-        decoder_input = nn.utils.rnn.pack_padded_sequence(x_sorted, sorted_len.cpu(), batch_first=True, enforce_sorted=True)    
+        x_emb = self.embedding(x_sorted)
+        decoder_input = nn.utils.rnn.pack_padded_sequence(x_emb, sorted_len.cpu(), batch_first=True, enforce_sorted=True)    
         
         # x: [batch_size, x length, embeddings]
         # hidden: [n_layers, batch size, hidden size]

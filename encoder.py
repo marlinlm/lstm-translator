@@ -2,14 +2,15 @@ import torch.nn as nn
 import torch
 
 class Encoder(nn.Module):
-    def __init__(self, device, embeddings=300, hidden_size=900, drop_out=0.2, num_layers=4):
+    def __init__(self, device, vocab_size = 20000, embeddings=300, hidden_size=900, drop_out=0.2, num_layers=4):
         super().__init__()
         self.device = device
         self.hidden_layer_size = hidden_size
+        self.embedding = nn.Embedding(vocab_size, embeddings, max_norm=2)
         self.n_layers = num_layers
         self.embedding_size = embeddings
         self.lstm = nn.LSTM(embeddings, hidden_size, num_layers, batch_first=True, dropout=drop_out)
-        self.encoder = nn.Linear(hidden_size * 2, hidden_size * 2)
+        # self.encoder = nn.Linear(hidden_size * 2, hidden_size * 2)
         # self.c_linear = nn.Linear(hidden_size * 2, hidden_size * 2)
         self.active = nn.Tanh()
 
@@ -17,17 +18,19 @@ class Encoder(nn.Module):
             if 'bias' in name:
                 nn.init.constant_(param, 0.0)
             elif 'weight' in name:
-                nn.init.xavier_uniform_(param,gain=0.02)
+                nn.init.xavier_uniform_(param,gain=0.25)
+        
+        nn.init.xavier_normal_(self.embedding.weight.data)
         # nn.init.xavier_uniform_(self.linear.weight.data,gain=0.25)
         # for name, param in self.linear.named_parameters():
         #     if 'bias' in name:
         #         nn.init.constant_(param, 0.0)
-        nn.init.xavier_uniform_(self.encoder.weight.data,gain=0.25)
-        for name, param in self.encoder.named_parameters():
-            if 'bias' in name:
-                nn.init.constant_(param, 0.0)
+        # nn.init.xavier_uniform_(self.encoder.weight.data,gain=0.25)
+        # for name, param in self.encoder.named_parameters():
+        #     if 'bias' in name:
+        #         nn.init.constant_(param, 0.0)
 
-    # x = [batch size, seq length, embeddings]
+    # x = [batch size, seq length, 1]
     # x_length = [batches]
     def forward(self, x, lengths):
         
@@ -36,7 +39,9 @@ class Encoder(nn.Module):
         sorted_len, sorted_idx = lengths.sort(0, descending=True)
         x_sorted = x[sorted_idx.long()]
         
-        encoder_in = nn.utils.rnn.pack_padded_sequence(x_sorted, sorted_len.cpu(), batch_first=True, enforce_sorted=True)    
+        x_emb = self.embedding(x_sorted)
+        
+        encoder_in = nn.utils.rnn.pack_padded_sequence(x_emb, sorted_len.cpu(), batch_first=True, enforce_sorted=True)    
         
         # lstm_out = [batch size, x length, hidden size]
         # hidden = [n_layer, batch size, hidden size]
