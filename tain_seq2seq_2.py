@@ -4,7 +4,8 @@ import time
 import numpy as np
 import corpus_reader
 import tokenizer as tknzr
-from seq2seq import Seq2Seq
+# from seq2seq import Seq2Seq
+from seq2seq_with_attn import Seq2Seq
 from creterion import Creterion
 import dict
 import sys
@@ -46,20 +47,36 @@ def train(device, model,  zh_word_2_index, zh_keys, en_word_2_index, en_keys, op
     loss_fun = Creterion(device)
     data_loader = load_test_data(zh_corpus_fname, en_corpus_fname, epoch_size, batch_size, 0)
     data = next(data_loader)
-
     loss_out_file = "./loss/" + out_file_prefix + ".loss"
     with open(loss_out_file, 'a', encoding='utf-8') as ff:
         for e in range(epoches):
+            
             # for batch_idx, ((en,en_len),(zh, zh_len)) in enumerate(data):
             for batch_idx, (en_batch, zh_batch) in enumerate(data):
-                ((en,en_len),(zh, zh_len)) = dict.scentences_to_indexes(device, en_batch, en_word_2_index), dict.scentences_to_indexes(device, zh_batch, zh_word_2_index)
                 
-                soft_max = model(en, en_len, zh, zh_len)
-                loss = loss_fun(soft_max, zh, zh_len, batch_size)
-                optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
-                optimizer.step()
+                ((en,en_len),(zh, zh_len)) = dict.scentences_to_indexes(device, en_batch, en_word_2_index), dict.scentences_to_indexes(device, zh_batch, zh_word_2_index)
+                retry = 0
+                while True:
+                    soft_max = model(en, en_len, zh, zh_len)
+                    loss = loss_fun(soft_max, zh, zh_len, batch_size)
+                    
+                    if np.isnan(loss.item()):
+                        if retry >= 3:
+                            print("loss is always nan! ignore...")
+                            break
+                        retry += 1
+                        print("loss is nan! try again...")
+                        continue
+                    retry = 0
+                    
+                    optimizer.zero_grad()
+                    loss.backward()
+                    for p in model.parameters():
+                        if torch.isnan(p.grad).any():
+                            print("detected nan in model")
+                    torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
+                    optimizer.step()
+                    break
                 
                 loss_str = f'{time.asctime(time.localtime(time.time()))},{str(e)},{str(batch_idx)},{str(loss.item())}\n'
                 ff.write(loss_str)
@@ -97,7 +114,7 @@ if __name__=="__main__":
 
     # prepare_test_data(embedding_loader, "../corpus/train", "../corpus/zh.txt", "../corpus/en.txt", 1000000)
     
-    # model_fname = "./models/_seq2seq_1699753627.1307073_162"
+    # model_fname = "./models/20231124_150_200_500000_100_10.model"
     model_fname = None
     model = None
     if not model_fname is None:
@@ -115,7 +132,7 @@ if __name__=="__main__":
     epoches = 200
     corpus = 500000
     batch_size = 100
-    out_file_prefix = '20231124_' +  '_'.join([str(epoches), str(corpus), str(batch_size)])
+    out_file_prefix = '20231129_attn0_' +  '_'.join([str(epoches), str(corpus), str(batch_size)])
     print("training...")
-    train(device, model, zh_idx, zh_keys, en_idx, en_keys, optimizer, "../corpus/zh_paral.txt", "../corpus/en_paral.txt", 200, 500000, 100, out_file_prefix)
+    train(device, model, zh_idx, zh_keys, en_idx, en_keys, optimizer, "../corpus/zh_paral.txt", "../corpus/en_paral.txt", 200, 500000, 1, out_file_prefix)
     

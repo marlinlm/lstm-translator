@@ -1,4 +1,5 @@
 .ipynb_checkpoints
 models
 loss
+nohup.log
 __pycache__
